@@ -48,6 +48,10 @@ class GitCheckout(BaseModel):
     repo_path: str
     branch_name: str
 
+class GitApply(BaseModel):
+    repo_path: str
+    diff: str
+
 class GitTools(str, Enum):
     STATUS = "git_status"
     DIFF_UNSTAGED = "git_diff_unstaged"
@@ -58,6 +62,7 @@ class GitTools(str, Enum):
     LOG = "git_log"
     CREATE_BRANCH = "git_create_branch"
     CHECKOUT = "git_checkout"
+    APPLY = "git_apply"
 
 def git_status(repo: git.Repo) -> str:
     return repo.git.status()
@@ -104,6 +109,16 @@ def git_create_branch(repo: git.Repo, branch_name: str, base_branch: str | None 
 def git_checkout(repo: git.Repo, branch_name: str) -> str:
     repo.git.checkout(branch_name)
     return f"Switched to branch '{branch_name}'"
+
+def git_apply(repo: git.Repo, diff: str) -> str:
+    temp_path = Path(repo.working_dir) / "temp.patch"
+    try:
+        temp_path.write_text(diff, newline='\n')
+        repo.git.apply(temp_path)
+        return "Applied patch successfully"
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
 
 async def serve(repository: Path | None) -> None:
     logger = logging.getLogger(__name__)
@@ -165,6 +180,11 @@ async def serve(repository: Path | None) -> None:
                 name=GitTools.CHECKOUT,
                 description="Switches branches",
                 inputSchema=GitCheckout.schema(),
+            ),
+            Tool(
+                name=GitTools.APPLY,
+                description="Applies a unified diff to the repository",
+                inputSchema=GitApply.schema(),
             ),
         ]
 
@@ -265,6 +285,13 @@ async def serve(repository: Path | None) -> None:
 
             case GitTools.CHECKOUT:
                 result = git_checkout(repo, arguments["branch_name"])
+                return [TextContent(
+                    type="text",
+                    text=result
+                )]
+
+            case GitTools.APPLY:
+                result = git_apply(repo, arguments["diff"])
                 return [TextContent(
                     type="text",
                     text=result
