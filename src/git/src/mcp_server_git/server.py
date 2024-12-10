@@ -183,7 +183,11 @@ async def serve(repository: Path | None) -> None:
             ),
             Tool(
                 name=GitTools.APPLY,
-                description="Applies a unified diff to the repository",
+                description="""
+                Applies a unified diff string to the repository.
+                This tool does not require a diff file to be present.
+                It expects a unified diff string in the 'diff' field of the input.
+                """,
                 inputSchema=GitApply.schema(),
             ),
         ]
